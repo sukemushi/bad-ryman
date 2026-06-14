@@ -5,6 +5,7 @@ import { LANGUAGE_CONFIG, textSimilarity, getScoreResult } from '../utils/scorin
 import StressPhrase from './StressPhrase.jsx'
 import { speakResult, speakFemaleSpanish } from '../utils/speech.js'
 import { translateJpToEsEn } from '../utils/translate.js'
+import { addToStock, getRandomPastItem, getStockCount } from '../utils/stock.js'
 
 const LANGS = ['ja', 'en', 'es']
 
@@ -22,6 +23,7 @@ export default function GameScreen() {
   const [isTranslating, setIsTranslating] = useState(false)
   const [jaStreak, setJaStreak] = useState(0)
   const [senorita, setSenorita] = useState(null)
+  const [stockCount, setStockCount] = useState(getStockCount)
 
   const { transcript, isListening, error, startListening, stopListening, reset } = useSpeechRecognition()
 
@@ -66,12 +68,22 @@ export default function GameScreen() {
       setJaStreak(prev => {
         const next = prev + 1
         if (next >= 3) {
-          const lines = [
-            { es: '¡Oye, guapo! ¿No quieres hablar español conmigo?', ja: '「ねえ、イケメンさん。私とスペイン語で話さない？」' },
-            { es: 'Hola... ¿Por qué hablas tanto japonés? Mírame a mí.', ja: '「ねえ…なんでそんなに日本語ばっかり？こっち見て。」' },
-            { es: '¿Estás perdido? Ven, te enseño español de verdad.', ja: '「迷っちゃった？おいで、本物のスペイン語を教えてあげる。」' },
-          ]
-          const pick = lines[(next - 3) % lines.length]
+          // 過去のストックがあれば、それを話題にして声をかけてくる（無ければ定番のセリフ）
+          const past = getRandomPastItem(transcript)
+          let pick
+          if (past && past.es) {
+            pick = {
+              es: `Oye... el otro día dijiste «${past.es}», ¿verdad? Cuéntame más.`,
+              ja: `「ねえ…この前『${past.ja}』って言ってたでしょ？もっと聞かせてよ。」`,
+            }
+          } else {
+            const lines = [
+              { es: '¡Oye, guapo! ¿No quieres hablar español conmigo?', ja: '「ねえ、イケメンさん。私とスペイン語で話さない？」' },
+              { es: 'Hola... ¿Por qué hablas tanto japonés? Mírame a mí.', ja: '「ねえ…なんでそんなに日本語ばっかり？こっち見て。」' },
+              { es: '¿Estás perdido? Ven, te enseño español de verdad.', ja: '「迷っちゃった？おいで、本物のスペイン語を教えてあげる。」' },
+            ]
+            pick = lines[(next - 3) % lines.length]
+          }
           setSenorita(pick)
           speakFemaleSpanish(pick.es)
           return 0 // リセットして再カウント
@@ -83,6 +95,9 @@ export default function GameScreen() {
       translateJpToEsEn(transcript).then(({ es, en }) => {
         setJpTranslations({ es, en })
         setIsTranslating(false)
+        // しゃべった日本語＋翻訳をストックに集積（端末内に蓄積）
+        const stock = addToStock({ ja: transcript, es, en })
+        setStockCount(stock.length)
         if (es) speakResult(es, en || '')
       })
       return
@@ -141,6 +156,9 @@ export default function GameScreen() {
           <div className="phrase-ja-free">何でも日本語でつぶやいてください</div>
           <div className="phrase-hint" style={{ marginTop: 8 }}>話した内容をスペイン語＋英語に翻訳します</div>
           <div className="phrase-ja" style={{ marginTop: 12, fontSize: 16, color: 'var(--text-muted)' }}>参考: {phrase.ja}</div>
+          {stockCount > 0 && (
+            <div className="stock-badge">🗂 これまでのつぶやき {stockCount} 件ストック中</div>
+          )}
         </div>
       ) : (
         <div className="phrase-card">
@@ -183,9 +201,20 @@ export default function GameScreen() {
             {isListening ? '⏹　停止' : '🎤　録音スタート'}
           </button>
           {isListening && (
-            <p className="listening-text">
-              {selectedLang === 'ja' ? '🔴 日本語で話してください...' : '🔴 聞いています...'}
-            </p>
+            <>
+              <div className="mic-visualizer" aria-hidden="true">
+                {[0.72, 0.9, 0.6, 1.0, 0.66, 0.84, 0.78].map((dur, i) => (
+                  <span
+                    key={i}
+                    className="mic-bar"
+                    style={{ animationDelay: `${i * 0.09}s`, animationDuration: `${dur}s` }}
+                  />
+                ))}
+              </div>
+              <p className="listening-text">
+                {selectedLang === 'ja' ? '🔴 日本語で話してください...' : '🔴 聞いています...'}
+              </p>
+            </>
           )}
           {error && <p className="error-text">{error}</p>}
         </div>

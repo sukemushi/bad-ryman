@@ -9,11 +9,11 @@ export function speakResult(esText, enText) {
   if (!window.speechSynthesis) return
   window.speechSynthesis.cancel()
 
-  // スペイン語 × 2 → 英語 × 1 の順に再生
+  // スペイン語：1回目ゆっくり → 2回目ふつう → 英語：ふつう の順に再生
   setTimeout(() => {
-    window.speechSynthesis.speak(makeUtterance(esText, 'es-419', 0.80))
-    window.speechSynthesis.speak(makeUtterance(esText, 'es-419', 0.85))
-    window.speechSynthesis.speak(makeUtterance(enText, 'en-US', 0.90))
+    window.speechSynthesis.speak(makeUtterance(esText, 'es-419', 0.5))  // 1回目：ゆっくり
+    window.speechSynthesis.speak(makeUtterance(esText, 'es-419', 0.8))  // 2回目：ふつう
+    window.speechSynthesis.speak(makeUtterance(enText, 'en-US', 0.82))  // 英語：ふつう
   }, 600)
 }
 
