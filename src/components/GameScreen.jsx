@@ -3,7 +3,7 @@ import { getRandomPhrase, getRandomPhraseExcluding } from '../data/phrases.js'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition.js'
 import { LANGUAGE_CONFIG, textSimilarity, getScoreResult } from '../utils/scoring.js'
 import StressPhrase from './StressPhrase.jsx'
-import { speakResult, speakFemaleSpanish } from '../utils/speech.js'
+import { speakResult, speakFemaleSpanish, speakOne, unlockAudio } from '../utils/speech.js'
 import { translateJpToEsEn } from '../utils/translate.js'
 import { addToStock, getRandomPastItem, getStockCount } from '../utils/stock.js'
 
@@ -39,9 +39,14 @@ export default function GameScreen() {
 
   const handleRecord = useCallback(() => {
     if (!selectedLang) return
+    unlockAudio() // iOSの音声ロックをユーザー操作のうちに解除しておく
     const lang = selectedLang === 'ja' ? 'ja-JP' : LANGUAGE_CONFIG[selectedLang].speechLang
     startListening(lang)
   }, [selectedLang, startListening])
+
+  // タップで何度でも発音（iOSでも確実に鳴る）
+  const sayEs = useCallback((t) => speakOne(t, 'es-419', 0.72), [])
+  const sayEn = useCallback((t) => speakOne(t, 'en-US', 0.82), [])
 
   const handleNext = useCallback(() => {
     setPhrase(prev => getRandomPhraseExcluding(prev.id))
@@ -228,8 +233,8 @@ export default function GameScreen() {
           </div>
 
           {senorita && (
-            <div className="senorita-card">
-              <div className="senorita-head">💃 セニョリータが声をかけてきた…！</div>
+            <div className="senorita-card tappable" onClick={() => speakFemaleSpanish(senorita.es)}>
+              <div className="senorita-head">💃 セニョリータが声をかけてきた…！ 🔊</div>
               <img src="/bad-ryman/senorita.png" alt="セニョリータ" className="senorita-img" />
               <div className="senorita-es">{senorita.es}</div>
               <div className="senorita-ja">{senorita.ja}</div>
@@ -249,14 +254,15 @@ export default function GameScreen() {
               </div>
             ) : jpTranslations && (
               <>
-                <div className="result-row">
-                  <span className="result-row-label">🇪🇸 スペイン語</span>
+                <div className="result-row tappable" onClick={() => sayEs(jpTranslations.es)}>
+                  <span className="result-row-label">🇪🇸 スペイン語 🔊</span>
                   <span className="result-row-value correct">{jpTranslations.es}</span>
                 </div>
-                <div className="result-row">
-                  <span className="result-row-label">🇺🇸 英語</span>
+                <div className="result-row tappable" onClick={() => sayEn(jpTranslations.en)}>
+                  <span className="result-row-label">🇺🇸 英語 🔊</span>
                   <span className="result-row-value en">{jpTranslations.en}</span>
                 </div>
+                <div className="tap-hint">💡 スペイン語・英語をタップすると何度でも発音します</div>
               </>
             )}
           </div>
@@ -292,18 +298,22 @@ export default function GameScreen() {
               <span className="result-row-label">あなたが言ったこと</span>
               <span className="result-row-value">「{result.transcript}」</span>
             </div>
-            <div className="result-row">
-              <span className="result-row-label">正解フレーズ</span>
+            <div
+              className="result-row tappable"
+              onClick={() => selectedLang === 'en' ? sayEn(phrase.en) : sayEs(phrase.es)}
+            >
+              <span className="result-row-label">正解フレーズ 🔊</span>
               <span className="result-row-value correct">
                 {selectedLang === 'en' ? phrase.en : phrase.es}
               </span>
             </div>
             {selectedLang === 'es' && (
-              <div className="result-row">
-                <span className="result-row-label">英語で言うと</span>
+              <div className="result-row tappable" onClick={() => sayEn(phrase.en)}>
+                <span className="result-row-label">英語で言うと 🔊</span>
                 <span className="result-row-value en">{phrase.en}</span>
               </div>
             )}
+            <div className="tap-hint">💡 フレーズをタップすると何度でも発音します</div>
           </div>
 
           <div className="back-trans-card">
